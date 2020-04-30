@@ -52,7 +52,7 @@
     "@oclif/errors": "^1.2.2",
     "@oclif/parser": "^3.8.4",
     "@oclif/plugin-help": "^2.2.3",
-    "@rsksmart/rif-marketplace-storage-pinning": "github:rsksmart/rif-marketplace-storage-pinning#feat/npm_package_preparations",
+    "@rsksmart/rif-marketplace-storage-pinning": "github:rsksmart/rif-marketplace-storage-pinning#chore/builded-contracts",
     "async-sema": "^3.1.0",
     "coingecko-api": "^1.0.10",
     "colors": "^1.4.0",

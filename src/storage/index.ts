@@ -4,13 +4,13 @@ import { AbiItem } from 'web3-utils'
 import config from 'config'
 import { EventData } from 'web3-eth-contract'
 
-import StorageOffer from './models/storage-offer.model'
+import Offer from './models/offer.model'
 import { Application, CachedService } from '../definitions'
 import { loggingFactory } from '../logger'
 import { getEventsEmitterForService, isServiceInitialized } from '../blockchain/utils'
 import hooks from './storage.hooks'
 import eventProcessor from './storage.blockchain'
-import Price from './models/price.model'
+import BillingPlan from './models/price.model'
 import { confFactory } from '../conf'
 import { ethFactory } from '../blockchain'
 import { errorHandler } from '../utils'
@@ -61,7 +61,7 @@ const storage: CachedService = {
     logger.info('Storage service: enabled')
 
     // Initialize feather's service
-    app.use('/storage/v0/offers', new StorageOfferService({ Model: StorageOffer }))
+    app.use('/storage/v0/offers', new StorageOfferService({ Model: Offer }))
     const service = app.service('/storage/v0/offers')
     service.hooks(hooks)
 
@@ -82,8 +82,8 @@ const storage: CachedService = {
   },
 
   async purge (): Promise<void> {
-    const priceCount = await Price.destroy({ where: {}, truncate: true, cascade: true })
-    const offersCount = await StorageOffer.destroy({ where: {}, truncate: true, cascade: true })
+    const priceCount = await BillingPlan.destroy({ where: {}, truncate: true, cascade: true })
+    const offersCount = await Offer.destroy({ where: {}, truncate: true, cascade: true })
     logger.info(`Removed ${priceCount} price entries and ${offersCount} storage offers`)
 
     confFactory().delete(SERVICE_NAME)

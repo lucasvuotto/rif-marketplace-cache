@@ -1,20 +1,20 @@
-import StorageOffer from '../models/storage-offer.model'
-import Price from '../models/price.model'
+import Offer from '../models/offer.model'
+import BillingPlan from '../models/price.model'
 import { EventData } from 'web3-eth-contract'
 import { loggingFactory } from '../../logger'
 import { Handler } from '../../definitions'
 
 const logger = loggingFactory('storage:handler:offer')
 
-function updatePrices (offer: StorageOffer, period: number, price: number): Promise<Price> {
-  const priceEntity = offer.prices && offer.prices.find(value => value.period === period)
+function updatePrices (offer: Offer, period: number, price: number): Promise<BillingPlan> {
+  const priceEntity = offer.plans && offer.plans.find(value => value.period === period)
   logger.info(`Updating period ${period} to price ${price} (ID: ${offer.address})`)
 
   if (priceEntity) {
     priceEntity.amount = price
     return priceEntity.save()
   } else {
-    const newPriceEntity = new Price({ period, amount: price, offerId: offer.address })
+    const newPriceEntity = new BillingPlan({ period, amount: price, offerId: offer.address })
     return newPriceEntity.save()
   }
 }
@@ -26,7 +26,7 @@ const handler: Handler = {
 
     // TODO: Ignored until https://github.com/sequelize/sequelize/pull/11924
     // @ts-ignore
-    const [offer, created] = await StorageOffer.findOrCreate({ where: { address: storer }, include: [Price] })
+    const [offer, created] = await Offer.findOrCreate({ where: { address: storer }, include: [BillingPlan] })
 
     if (created) {
       logger.info(`Created new StorageOffer for ${storer}`)
@@ -34,12 +34,12 @@ const handler: Handler = {
 
     switch (event.event) {
       case 'CapacitySet':
-        offer.capacity = event.returnValues.capacity
-        logger.info(`Updating capacity ${offer.capacity} (ID: ${offer.address})`)
+        offer.totalCapacity = event.returnValues.capacity
+        logger.info(`Updating capacity ${offer.totalCapacity} (ID: ${offer.address})`)
         break
       case 'MaximumDurationSet':
-        offer.maximumDuration = event.returnValues.maximumDuration
-        logger.info(`Updating maximum duration ${offer.maximumDuration} (ID: ${offer.address})`)
+        offer.availableFunds = event.returnValues.maximumDuration
+        logger.info(`Updating maximum duration ${offer.availableFunds} (ID: ${offer.address})`)
         break
       case 'PriceSet':
         await updatePrices(offer, event.returnValues.period, event.returnValues.price)

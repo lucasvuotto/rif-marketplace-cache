@@ -3,9 +3,9 @@ import { hexToAscii, soliditySha3 } from 'web3-utils'
 
 import { loggingFactory } from '../../logger'
 import { Handler } from '../../definitions'
-import Request from '../models/request.model'
+import Agreement from '../models/agreement.model'
 import { EventError } from '../../errors'
-import Price from '../models/price.model'
+import BillingPlan from '../models/price.model'
 
 const logger = loggingFactory('storage:handler:request')
 
@@ -23,13 +23,13 @@ const handlers = {
     const id = soliditySha3(event.returnValues.requester, ...event.returnValues.fileReference)
     const fileReference = decodeFileReference(event.returnValues.fileReference)
 
-    const price = await Price.findOne({ where: { offerId, period } })
+    const price = await BillingPlan.findOne({ where: { offerId, period } })
 
     if (!price) {
       throw new EventError(`Price for period ${period} and offer ${offerId} not found when creating new request ${id}`, 'RequestMade')
     }
 
-    const req = new Request({
+    const req = new Agreement({
       requestId: id,
       reference: fileReference,
       requester: event.returnValues.requester,
@@ -45,7 +45,7 @@ const handlers = {
 
   async RequestStopped (event: EventData): Promise<void> {
     const id = event.returnValues.requestReference
-    const request = await Request.findByPk(id)
+    const request = await Agreement.findByPk(id)
 
     if (!request) {
       throw new EventError(`Request with ID ${id} was not found!`, 'RequestStopped')
@@ -57,20 +57,20 @@ const handlers = {
 
   async RequestTopUp (event: EventData): Promise<void> {
     const id = event.returnValues.requestReference
-    const request = await Request.findByPk(id)
+    const request = await Agreement.findByPk(id)
 
     if (!request) {
       throw new EventError(`Request with ID ${id} was not found!`, 'RequestTopUp')
     }
 
-    request.deposited += event.returnValues.deposited
+    request.availableFunds += event.returnValues.deposited
     await request.save()
     logger.info(`Request ${id} was topped up with ${event.returnValues.deposited}.`)
   },
 
   async EarningsWithdrawn (event: EventData): Promise<void> {
     const id = event.returnValues.requestReference
-    const request = await Request.findByPk(id)
+    const request = await Agreement.findByPk(id)
 
     if (!request) {
       throw new EventError(`Request with ID ${id} was not found!`, 'EarningsWithdrawn')
