@@ -30,11 +30,11 @@ export const services = {
   [SupportedServices.RNS]: rns
 }
 
-export function isSupportedServices (value: any): value is SupportedServices {
+export function isSupportedServices(value: any): value is SupportedServices {
   return Object.values(SupportedServices).includes(value)
 }
 
-export function appFactory (): Application {
+export function appFactory(): Application {
   const app: Application = express(feathers())
 
   // Enable security, CORS, compression and body parsing
