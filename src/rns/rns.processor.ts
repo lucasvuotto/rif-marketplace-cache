@@ -9,20 +9,19 @@ import Domain from './models/domain.model'
 import Transfer from './models/transfer.model'
 
 async function transferHandler(logger: Logger, eventData: EventData, _: Eth, services: RnsServices): Promise<void> {
-  // Transfer(address indexed from, address indexed to, uint256 indexed tokenId)
-  const domainsService = services.domains
 
   const tokenId = Utils.numberToHex(eventData.returnValues.tokenId)
   const ownerAddress = eventData.returnValues.to.toLowerCase()
+  const domainsService = services.domains
+
   const domain = await Domain.findByPk(tokenId)
 
   if (eventData.returnValues.from !== '0x0000000000000000000000000000000000000000') {
     // if not exist then create (1 insert), Domain.findCreateFind
     // else create a SoldDomain and update with the new owner the registry (1 insert + update)
     if (!domain) {
-      logger.info(`Transfer event: Domain ${tokenId} created`)
-      const domain = await domainsService.create({ tokenId, ownerAddress })
-      logger.error('rns.processor.ts -> transferHandler -> domain created:', domain)
+      const newDomain = await domainsService.create({ tokenId, ownerAddress })
+      logger.info(`Transfer event: Domain ${tokenId} created for owner ${ownerAddress}`)
     } else {
       logger.info(`Transfer event: Domain ${tokenId} updated`)
       const transactionHash = eventData.transactionHash
@@ -38,8 +37,7 @@ async function transferHandler(logger: Logger, eventData: EventData, _: Eth, ser
       if (transferDomain) {
         logger.info(`Transfer event: Transfer ${tokenId} created`)
       }
-      const [affectedRows] = await domainsService.patch(null, { ownerAddress }, { where: { tokenId } })
-      console.log('rns.processor.ts -> transferHandler -> affectedRows', affectedRows)
+      const affectedRows = await domainsService.patch(tokenId, { ownerAddress }, { where: { tokenId } })
 
       if (affectedRows) {
         logger.info(`Transfer event: Updated Domain ${domain.name} -> ${tokenId}`)
@@ -48,15 +46,14 @@ async function transferHandler(logger: Logger, eventData: EventData, _: Eth, ser
       }
     }
   } else if (!domain?.ownerAddress) {
-    await domainsService.patch(tokenId, { ownerAddress })
+    await domainsService.patch(tokenId, { ownerAddress }, { where: { tokenId } })
     logger.info(`Transfer event: ${tokenId} ownership updated`)
   }
 }
 
 async function expirationChangedHandler(logger: Logger, eventData: EventData, _: Eth, services: RnsServices): Promise<void> {
   // event ExpirationChanged(uint256 tokenId, uint expirationTime);
-
-  const domainsService = services.domains
+  const domainsService = services.domains as any
 
   const tokenId = Utils.numberToHex(eventData.returnValues.tokenId)
   let normalizedTimestamp = eventData.returnValues.expirationTime as string
@@ -65,13 +62,19 @@ async function expirationChangedHandler(logger: Logger, eventData: EventData, _:
   if (normalizedTimestamp.startsWith('10000')) {
     normalizedTimestamp = eventData.returnValues.expirationTime.slice(5)
   }
+
   const expirationDate = parseInt(normalizedTimestamp) * 1000
   const domain = await Domain.findByPk(tokenId)
-  console.log('rns.processor.ts -> expirationChangedHandler -> domain:', domain)
+
   if (domain) {
-    await domainsService.update(domain.tokenId, { tokenId, expirationDate })
+    await domainsService.patch(tokenId, { tokenId, expirationDate }, { where: { tokenId } })
   } else {
     await domainsService.create({ tokenId, expirationDate })
+  }
+
+  await Domain.upsert({ tokenId, expirationDate })
+  if (domainsService.emit) {
+    domainsService.emit('updated')
   }
 
   logger.info(`ExpirationChange event: Domain ${tokenId} updated`)
@@ -83,11 +86,13 @@ async function nameChangedHandler(logger: Logger, eventData: EventData, _: Eth, 
   const domainsService = services.domains
 
   const label = name.substring(0, name.indexOf('.'))
-  const tokenId = Utils.sha3(label)
+  console.log('rns.processor.ts -> nameChangedHandler -> label', label)
+  const tokenId = Utils.numberToHex(Utils.sha3(label) as string)
 
   const domain = await Domain.findByPk(tokenId)
-  const [affectedRows] = await domainsService.patch(null, { name: name }, { where: { tokenId } })
-  console.log('rns.processor.ts -> transferHandler -> affectedRows', affectedRows)
+  console.log('rns.processor.ts -> nameChangedHandler -> domain', domain)
+  const affectedRows = await domainsService.patch(tokenId, { name: name }, { where: { tokenId } })
+  console.log('rns.processor.ts -> nameChangedHandler -> affectedRows', affectedRows)
 
   if (affectedRows) {
     logger.info(`NameChanged event: Updated Domain ${name} -> ${tokenId}`)
@@ -117,9 +122,9 @@ async function tokenPlacedHandler(logger: Logger, eventData: EventData, eth: Eth
       status: 'ACTIVE'
     }
   }))
-  const [affectedRows] = await offersService.patch(null, {
+  const [affectedRows] = await offersService.patch(tokenId, {
     status: 'CANCELED'
-  }, { query: { tokenId, status: 'ACTIVE' } })
+  }, { where: { tokenId, status: 'ACTIVE' } })
 
   if (affectedRows) {
     logger.info(`TokenPlaced event: ${tokenId} previous placement cancelled`)
@@ -146,9 +151,9 @@ async function tokenUnplacedHandler(logger: Logger, eventData: EventData, eth: E
 
   const tokenId = Utils.numberToHex(eventData.returnValues.tokenId)
 
-  const [affectedRows] = await offersService.patch(null, {
+  const [affectedRows] = await offersService.patch(tokenId, {
     status: 'CANCELED'
-  }, { where: { tokenId: tokenId, status: 'ACTIVE' } })
+  }, { where: { tokenId, status: 'ACTIVE' } })
 
   if (affectedRows) {
     logger.info(`TokenUnplaced event: ${tokenId} updated`)

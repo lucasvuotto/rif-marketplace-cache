@@ -95,9 +95,9 @@ const rns: CachedService = {
     await waitForReadyApp(app)
 
     // Initialize feather's service
-    app.use('/rns/v0/:ownerAddress/domains', new RnsService({ Model: Domain, multi: true }))
-    app.use('/rns/v0/:ownerAddress/sold', new RnsService({ Model: SoldDomain, multi: true }))
-    app.use('/rns/v0/offers', new RnsService({ Model: DomainOffer, multi: true }))
+    app.use('/rns/v0/:ownerAddress/domains', new RnsService({ Model: Domain }))
+    app.use('/rns/v0/:ownerAddress/sold', new RnsService({ Model: SoldDomain }))
+    app.use('/rns/v0/offers', new RnsService({ Model: DomainOffer }))
 
     const domains = app.service('/rns/v0/:ownerAddress/domains')
     const sold = app.service('/rns/v0/:ownerAddress/sold')
